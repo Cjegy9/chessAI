@@ -1,6 +1,7 @@
 # This is where you build your AI for the Chess game.
 
 from joueur.base_ai import BaseAI
+from copy import deepcopy
 import random
 
 class AI(BaseAI):
@@ -51,43 +52,43 @@ class AI(BaseAI):
         else:
             return ""
 
-    def check_pawn(self, oldFile, oldRank, newFile, newRank):
+    def check_pawn(self, oldFile, oldRank, newFile, newRank, player, game_board):
         if abs(oldRank - newRank) == 1:
-            if self.game.board[oldFile][oldRank + self.player.rank_direction] == 0 and\
+            if game_board[oldFile][oldRank + player.rank_direction] == 0 and\
                     1 <= newRank <= 8 and oldFile == newFile:
                 return True
             elif 1 <= newRank <= 8 and oldFile != newFile and\
-                    self.game.board[newFile][oldRank + self.player.rank_direction] != 0:
-                if self.game.board[newFile][oldRank + self.player.rank_direction].owner != self.player:
+                    game_board[newFile][oldRank + player.rank_direction] != 0:
+                if game_board[newFile][oldRank + player.rank_direction].owner != player:
                     return True
         elif abs(oldRank - newRank) == 2:
-            if self.game.board[oldFile][oldRank + self.player.rank_direction] == 0 and\
-                            self.game.board[oldFile][oldRank + self.player.rank_direction * 2] == 0:
+            if game_board[oldFile][oldRank + player.rank_direction] == 0 and\
+                            game_board[oldFile][oldRank + player.rank_direction * 2] == 0:
                 return True
         return False
 
-    def pawnmoves(self, pawn):
+    def pawnmoves(self, pawn, player, game_board):
         move_list = []
         if not pawn.has_moved:  # start move
-            randomRank = pawn.rank + self.player.rank_direction * 2
-            if self.check_pawn(pawn.file, pawn.rank, pawn.file, randomRank):
+            randomRank = pawn.rank + player.rank_direction * 2
+            if self.check_pawn(pawn.file, pawn.rank, pawn.file, randomRank, player, game_board):
                 move_list.append((pawn, pawn.file, randomRank, ""))
 
         # move 1 forward
-        randomRank = pawn.rank + self.player.rank_direction
-        if self.check_pawn(pawn.file, pawn.rank, pawn.file, randomRank):
+        randomRank = pawn.rank + player.rank_direction
+        if self.check_pawn(pawn.file, pawn.rank, pawn.file, randomRank, player, game_board):
             move_list.append((pawn, pawn.file, randomRank, self.promote_pawn(randomRank)))
 
-        randomRank = pawn.rank + self.player.rank_direction
+        randomRank = pawn.rank + player.rank_direction
         if ord(pawn.file) - 1 >= 97:  # left diagonal
-            if self.check_pawn(pawn.file, pawn.rank, chr(ord(pawn.file) - 1), randomRank):
+            if self.check_pawn(pawn.file, pawn.rank, chr(ord(pawn.file) - 1), randomRank, player, game_board):
                 move_list.append((pawn, chr(ord(pawn.file) - 1), randomRank, self.promote_pawn(randomRank)))
         elif ord(pawn.file) + 1 <= 104:  # right diagonal
-            if self.check_pawn(pawn.file, pawn.rank, chr(ord(pawn.file) + 1), randomRank):
+            if self.check_pawn(pawn.file, pawn.rank, chr(ord(pawn.file) + 1), randomRank, player, game_board):
                 move_list.append((pawn, chr(ord(pawn.file) + 1), randomRank, self.promote_pawn(randomRank)))
         return move_list
 
-    def rookmoves(self, rook):
+    def rookmoves(self, rook, player, game_board):
         move_list = []
         possible_moves = [(1, 0), (0, 1), (-1, 0), (0, -1)]
 
@@ -95,30 +96,30 @@ class AI(BaseAI):
             run_file = file
             run_rank = rank
             while 1 <= rook.rank + run_rank <= 8 and 97 <= ord(rook.file) + run_file <= 104 and\
-                    self.game.board[chr(ord(rook.file) + run_file)][rook.rank + run_rank] == 0:
+                    game_board[chr(ord(rook.file) + run_file)][rook.rank + run_rank] == 0:
                 move_list.append((rook, chr(ord(rook.file) + run_file), rook.rank + run_rank))
                 run_file += run_file
                 run_rank += run_rank
             else:
                 if 1 <= rook.rank + run_rank <= 8 and 97 <= ord(rook.file) + run_file <= 104 and\
-                        self.game.board[chr(ord(rook.file) + run_file)][rook.rank + run_rank].owner != self.player:
+                        game_board[chr(ord(rook.file) + run_file)][rook.rank + run_rank].owner != player:
                     move_list.append((rook, chr(ord(rook.file) + run_file), rook.rank + run_rank))
 
         return move_list
 
-    def knightmoves(self, knight):
+    def knightmoves(self, knight, player, game_board):
         move_list = []
         possible_moves = [(1, 2), (-1, 2), (1, -2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
 
         for file, rank in possible_moves:
             if (1 <= knight.rank + rank <= 8 and 97 <= ord(knight.file) + file <= 104) and\
-                    (self.game.board[chr(ord(knight.file) + file)][knight.rank + rank] == 0 or
-                     self.game.board[chr(ord(knight.file) + file)][knight.rank + rank].owner != self.player):
+                    (game_board[chr(ord(knight.file) + file)][knight.rank + rank] == 0 or
+                     game_board[chr(ord(knight.file) + file)][knight.rank + rank].owner != player):
                 move_list.append((knight, chr(ord(knight.file) + file), knight.rank + rank))
 
         return move_list
 
-    def bishopmoves(self, bishop):
+    def bishopmoves(self, bishop, player, game_board):
         move_list = []
         possible_moves = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
 
@@ -126,40 +127,117 @@ class AI(BaseAI):
             run_file = file
             run_rank = rank
             while 1 <= bishop.rank + run_rank <= 8 and 97 <= ord(bishop.file) + run_file <= 104 and \
-                    self.game.board[chr(ord(bishop.file) + run_file)][bishop.rank + run_rank] == 0:
+                    game_board[chr(ord(bishop.file) + run_file)][bishop.rank + run_rank] == 0:
                 move_list.append((bishop, chr(ord(bishop.file) + run_file), bishop.rank + run_rank))
                 run_file += run_file
                 run_rank += run_rank
             else:
                 if 1 <= bishop.rank + run_rank <= 8 and 97 <= ord(bishop.file) + run_file <= 104 and \
-                        self.game.board[chr(ord(bishop.file) + run_file)][bishop.rank + run_rank].owner != self.player:
+                        game_board[chr(ord(bishop.file) + run_file)][bishop.rank + run_rank].owner != player:
                     move_list.append((bishop, chr(ord(bishop.file) + run_file), bishop.rank + run_rank))
 
         return move_list
 
-    def queenmoves(self, queen):
+    def queenmoves(self, queen, player, game_board):
         move_list = []
-        move_list += self.rookmoves(queen)
-        move_list += self.bishopmoves(queen)
+        move_list += self.rookmoves(queen, player, game_board)
+        move_list += self.bishopmoves(queen, player, game_board)
         return move_list
 
-    def kingmoves(self, king):
+    def kingmoves(self, king, player, game_board):
         move_list = []
         possible_moves = [(1, 0), (0, 1), (1, 1), (1, -1), (-1, 0), (0, -1), (-1, -1), (-1, 1)]
 
         for file, rank in possible_moves:
             if 1 <= king.rank + rank <= 8 and 97 <= ord(king.file) + file <= 104 and\
-                    (self.game.board[chr(ord(king.file) + file)][king.rank + rank] == 0 or
-                     self.game.board[chr(ord(king.file) + file)][king.rank + rank].owner !=  self.player):
+                    (game_board[chr(ord(king.file) + file)][king.rank + rank] == 0 or
+                     game_board[chr(ord(king.file) + file)][king.rank + rank].owner != player):
                 move_list.append((king, chr(ord(king.file) + file), king.rank + rank))
 
         return move_list
 
-    def minimax(self, ):
-        pass
+    def piece_value(self, game_board, move):
+        piece = game_board[move[1]][move[2]]
+        if piece != 0:
+            if piece.type == "Pawn":
+                return 1
+            elif piece.type == "Knight":
+                return 3
+            elif piece.type == "Bishop":
+                return 3
+            elif piece.type == "Rook":
+                return 5
+            elif piece.type == "Queen":
+                return 9
+            elif piece.type == "King":
+                return 20
+        else:
+            return 0
 
-    def retrieve_moves(self, pieces):
-        pass
+    def alter_board(self, game_board, move):
+        board = game_board
+        game_board[move[0].file][move[0].rank] == 0
+        game_board[move[1]][move[2]] = move[0]
+        return board
+
+    def minimax(self, game_board):
+        move_list = self.retrieve_moves(self.player, game_board)
+        best_move = random.choice(move_list)
+        best_score = float("-inf")
+        for move in move_list:
+            new_board = deepcopy(self.alter_board(game_board, move))
+            score = self.min_play(new_board, self.player.other_player)
+            if score > best_score:
+                best_move = move
+                best_score = score
+
+        return best_move
+
+    def min_play(self, game_board, player):
+        # implement game over state
+        moves = self.retrieve_moves(player, game_board)
+        best_move = random.choice(moves)
+        best_score = float('inf')
+        for move in moves:
+            new_board = deepcopy(self.alter_board(game_board, move))
+            score = self.max_play(new_board, player)
+            if score < best_score:
+                best_move = move
+                best_score = score
+        return best_score
+
+    def max_play(self, game_board, player):
+        # implement game over state
+        moves = self.retrieve_moves(player, game_board)
+        best_score = float('-inf')
+        for move in moves:
+            score = self.piece_value(game_board, move)
+            if score > best_score:
+                best_score = score
+        return best_score
+
+
+    def retrieve_moves(self, player, game_board):
+        move_list = []
+        pieces = {"Pawn": [], "Knight": [], "Rook": [], "Bishop": [], "Queen": [], "King": []}
+
+        for piece in player.pieces:
+            pieces[piece.type].append(piece)
+
+        for pawn in pieces["Pawn"]:
+            move_list += self.pawnmoves(pawn, player, game_board)
+        for knight in pieces["Knight"]:
+            move_list += self.knightmoves(knight, player, game_board)
+        for rook in pieces["Rook"]:
+            move_list += self.rookmoves(rook, player, game_board)
+        for bishop in pieces["Bishop"]:
+            move_list += self.bishopmoves(bishop, player, game_board)
+        for queen in pieces["Queen"]:
+            move_list += self.queenmoves(queen, player, game_board)
+        for king in pieces["King"]:
+            move_list += self.kingmoves(king, player, game_board)
+
+        return move_list
 
     def run_turn(self):
         """ This is called every time it is this AI.player's turn.
@@ -217,43 +295,20 @@ class AI(BaseAI):
         print("Time Remaining: " + str(self.player.time_remaining) + " ns")
 
         # 4) make a random (and probably invalid) move.
-        move_list = []
-        pieces = {"Pawn": [], "Knight": [], "Rook": [], "Bishop": [], "Queen": [], "King": []}
-        inCheck = False
 
-        for piece in self.player.pieces:
-            pieces[piece.type].append(piece)
+        best_move = self.minimax(self.game.board)
 
-        for pawn in pieces["Pawn"]:
-            move_list += self.pawnmoves(pawn)
-        for knight in pieces["Knight"]:
-            move_list += self.knightmoves(knight)
-        for rook in pieces["Rook"]:
-            move_list += self.rookmoves(rook)
-        for bishop in pieces["Bishop"]:
-            move_list += self.bishopmoves(bishop)
-        for queen in pieces["Queen"]:
-            move_list += self.queenmoves(queen)
-        for king in pieces["King"]:
-            move_list += self.kingmoves(king)
 
-        while not inCheck:
-            randomMove = random.choice(move_list)
-            for move in move_list:
-                if move[0] == randomMove[0]:
-                    print("{}{}{} {}{}{}".format(move[0].type[0:1], move[0].file,
-                                                 move[0].rank, move[0].type[0:1], move[1], move[2]))
-            if randomMove[0].type == "Pawn":
-                randomMove[0].move(randomMove[1], randomMove[2], randomMove[3])
-            else:
-                randomMove[0].move(randomMove[1], randomMove[2])
+        """randomMove = random.choice(move_list)
+        for move in move_list:
+            if move[0] == randomMove[0]:
+                print("{}{}{} {}{}{}".format(move[0].type[0:1], move[0].file,
+                                             move[0].rank, move[0].type[0:1], move[1], move[2]))
+        """
 
-            if self.player.in_check:
-                move_list.remove(randomMove)
-                self.game.move[-1].remove()
-            else:
-                inCheck = True
-
-        self.game_updated()
+        if best_move[0].type == "Pawn":
+            best_move[0].move(best_move[1], best_move[2], best_move[3])
+        else:
+            best_move[0].move(best_move[1], best_move[2])
 
         return True
